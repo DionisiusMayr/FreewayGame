@@ -1,4 +1,5 @@
 import gym
+import time
 import src.agents as agents
 import src.utils as utils
 
@@ -16,16 +17,15 @@ def run(Agent: agents.Agent, render: bool=False, n_runs: int=1, verbose=True):
         agent = Agent()
 
         game_over = False
-        action = agent.act(initial_state, 0, False)
+        next_action = agent.act(initial_state, 0)
 
         while not game_over:
             if render:
-                time.sleep(0.05)
+                time.sleep(0.025)
                 env.render()
-                
             # We won't use the fourth returned value, `lives`.
-            ob, reward, game_over, _ = env.step(action)
-            action = agent.act(ob, reward, game_over)
+            ob, reward, game_over, _ = env.step(next_action)
+            next_action = agent.act(ob, reward)
             # input()  # Workaround: wait for next action
 
         # Small hack: The byte 103 contains the Player 1 score.
