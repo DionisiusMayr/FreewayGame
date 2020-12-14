@@ -16,7 +16,7 @@ class Agent(ABC):
         pass
     
     @abstractmethod
-    def act(self, ob, reward):
+    def act(self, ob):
         pass
 
 
@@ -27,28 +27,31 @@ class Baseline(Agent):
     def __init__(self):
         pass
     
-    def act(self, ob, reward):
+    def act(self, ob):
         return 1  # Always move up!
 
 
 class MonteCarloControl(Agent):
-    def __init__(self, epsilon: float, gamma: float, available_actions: int):
-        self.epsilon = epsilon
+    def __init__(self, gamma: float, available_actions: int, N0: float):
         self.gamma = gamma
+        self.available_actions = available_actions
+
         self.Q = defaultdict(lambda: np.zeros(available_actions))
         # TODO: Are we able to use numpy arrays for `Returns`?
         self.Returns = defaultdict(lambda: defaultdict(list))
         self.pi = defaultdict(lambda: 1)
+        self.N0 = N0
 
-    def act(self, ob, reward):
-        """
-        With prob (1 - epsilon) execute the greedy action, and with
-        probability epsilon, execute a random action.
-        """
-        if np.random.choice(np.arange(2), p=[1 - self.epsilon, self.epsilon]):
-            return np.random.choice(2) # Going back is not an option
+    def act(self, ob):
+        state = ob.data.tobytes()
+
+        visits_on_state = sum([len(v) for k, v in self.Returns[state].items()])
+        epsilon = self.N0 / (self.N0 + visits_on_state)
+
+        if np.random.choice(np.arange(2), p=[1 - epsilon, epsilon]):
+            return np.random.choice(self.available_actions)  # Explore!
         else:
-            return self.pi[ob.data.tobytes()]
+            return self.pi[state]  # Greedy
 
     def update_policy(self, episode):
         G = 0
@@ -68,6 +71,39 @@ class MonteCarloControl(Agent):
 #         print(f"Pi: {len(pi):8} ", end='')#, Q: {len(Q)}, Returns: {len(Returns)}")
 
         return episode.get_final_score(), episode.get_total_reward()
+
+
+class QLearning(Agent):
+    def __init__(self, alpha: float, gamma: float, available_actions: int, N0: float):
+        self.alpha = alpha
+        self.gamma = gamma
+        self.available_actions = available_actions
+        self.N0 = N0
+
+        self.Q = defaultdict(lambda: np.zeros(available_actions))
+        self.state_visits = defaultdict(lambda: 0)
+
+    def act(self, state):
+#         state = ob.data.tobytes()
+
+        epsilon = self.N0 / (self.N0 + self.state_visits[state])
+
+        self.state_visits[state] += 1
+
+        if np.random.choice(np.arange(2), p=[1 - epsilon, epsilon]):
+            return np.random.choice(self.available_actions)  # Explore!
+        elif self.Q[state].max() == 0.0:
+            return 1  # Bias toward going forward
+        else:
+            return self.Q[state].argmax()  # Greedy action
+
+    def update_Q(self, old_state, new_state, action, reward):
+#         if reward:
+#             print("Old Q[state][action]", self.Q[old_state][action])
+#             print(f"alpha {self.alpha}, reward {reward}, gamma {self.gamma}, right side {(reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])}")
+        self.Q[old_state][action] = self.Q[old_state][action] + self.alpha * (reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])
+#         if reward:
+#             print("New Q[state][action]", self.Q[old_state][action])
 
 
 if __name__ == '__main__':

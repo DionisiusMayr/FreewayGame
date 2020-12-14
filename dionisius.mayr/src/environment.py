@@ -1,7 +1,8 @@
-import gym
 import time
+
+import gym
+
 import src.agents as agents
-import src.utils as utils
 
 def get_env():
     env = gym.make('Freeway-ram-v0')
