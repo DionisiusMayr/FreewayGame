@@ -16,7 +16,7 @@ class Agent(ABC):
         pass
     
     @abstractmethod
-    def act(self, ob):
+    def act(self, state):
         pass
 
 
@@ -27,7 +27,7 @@ class Baseline(Agent):
     def __init__(self):
         pass
     
-    def act(self, ob):
+    def act(self, state):
         return 1  # Always move up!
 
 
@@ -36,19 +36,17 @@ class MonteCarloControl(Agent):
         self.gamma = gamma
         self.available_actions = available_actions
 
-        self.Q = defaultdict(lambda: np.zeros(available_actions))
+        self.Q = defaultdict(lambda: np.zeros(self.available_actions))
         # TODO: Are we able to use numpy arrays for `Returns`?
         self.Returns = defaultdict(lambda: defaultdict(list))
-        self.pi = defaultdict(lambda: 1)
+        self.pi = defaultdict(lambda: 1)  # Forward Bias
         self.N0 = N0
 
-    def act(self, ob):
-        state = ob.data.tobytes()
-
+    def act(self, state):
         visits_on_state = sum([len(v) for k, v in self.Returns[state].items()])
         epsilon = self.N0 / (self.N0 + visits_on_state)
-
-        if np.random.choice(np.arange(2), p=[1 - epsilon, epsilon]):
+ 
+        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
             return np.random.choice(self.available_actions)  # Explore!
         else:
             return self.pi[state]  # Greedy
@@ -65,6 +63,7 @@ class MonteCarloControl(Agent):
             #  the sequence S_0, S_1, S_2, ..., S_t-1.
             G = self.gamma * G + R[t + 1]
             self.Returns[S[t]][A[t]].append(G)
+            # Alpha is the `len(self.Returns[S[t]][A[t]])`
             self.Q[S[t]][A[t]] = sum(self.Returns[S[t]][A[t]]) / len(self.Returns[S[t]][A[t]])  # Mean
             self.pi[S[t]] = self.Q[S[t]].argmax()
 
@@ -74,34 +73,38 @@ class MonteCarloControl(Agent):
 
 
 class QLearning(Agent):
-    def __init__(self, alpha: float, gamma: float, available_actions: int, N0: float):
-        self.alpha = alpha
+    def __init__(self, gamma: float, available_actions: int, N0: float):
         self.gamma = gamma
         self.available_actions = available_actions
         self.N0 = N0
 
-        self.Q = defaultdict(lambda: np.zeros(available_actions))
+        self.Q = defaultdict(lambda: np.zeros(self.available_actions))
         self.state_visits = defaultdict(lambda: 0)
+        self.Nsa = defaultdict(lambda: defaultdict(lambda: 0))
 
     def act(self, state):
-#         state = ob.data.tobytes()
-
         epsilon = self.N0 / (self.N0 + self.state_visits[state])
 
         self.state_visits[state] += 1
 
-        if np.random.choice(np.arange(2), p=[1 - epsilon, epsilon]):
-            return np.random.choice(self.available_actions)  # Explore!
-        elif self.Q[state].max() == 0.0:
-            return 1  # Bias toward going forward
+        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+            action = np.random.choice(self.available_actions)  # Explore!
+        elif self.state_visits[state] == 0:
+#         elif self.Q[state].max() == 0.0 and self.Q[state].min() == 0.0:
+            action = 1  # Bias toward going forward
         else:
-            return self.Q[state].argmax()  # Greedy action
+            action = self.Q[state].argmax()  # Greedy action
+
+        self.Nsa[state][action] += 1
+
+        return action
 
     def update_Q(self, old_state, new_state, action, reward):
 #         if reward:
 #             print("Old Q[state][action]", self.Q[old_state][action])
 #             print(f"alpha {self.alpha}, reward {reward}, gamma {self.gamma}, right side {(reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])}")
-        self.Q[old_state][action] = self.Q[old_state][action] + self.alpha * (reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])
+        alpha = (1 / self.Nsa[old_state][action])
+        self.Q[old_state][action] = self.Q[old_state][action] + alpha * (reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])
 #         if reward:
 #             print("New Q[state][action]", self.Q[old_state][action])
 
