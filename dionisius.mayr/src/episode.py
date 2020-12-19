@@ -28,7 +28,7 @@ class Episode(object):
         return self.steps[i]
 
     def add_step(self, state, action, reward, score):
-        step = Step(state.data.tobytes(), action, reward, score)
+        step = Step(state, action, reward, score)
         self.steps.append(step)
         self.length += 1
 
@@ -49,15 +49,20 @@ class Episode(object):
 
         
 
-def generate_episode(env, agent: agents.Agent, RAM_mask: List[int], render: bool=False) -> Episode:
+def generate_episode(env,
+                     reduce_state,
+                     reward_policy,
+                     agent: agents.Agent,
+                     RAM_mask: List[int],
+                     render: bool=False) -> Episode:
     """Performs one run of the game and returns an Episode containing all the
     steps taken."""
     epi = Episode()
     game_over = False
-    state = env.reset()[RAM_mask]  # Select useful bytes
-    action = agent.act(state, 0)  # TODO: aren't reducing the dimensionality
-                                  # of the first action, but it shouldn't
-                                  # impact the final result
+    state = env.reset()
+    state = reduce_state(state)[RAM_mask].data.tobytes()  # Select useful bytes
+    action = agent.act(state)
+
     score = 0
 
     while not game_over:
@@ -67,30 +72,13 @@ def generate_episode(env, agent: agents.Agent, RAM_mask: List[int], render: bool
 
         ob, reward, game_over, _ = env.step(action)
 
-        # Doesn't matter where we were hit
-        ob[16] = 1 if ob[16] != 255 else 0
-
-        # Reduce chicken y-position
-        ob[14] = ob[14] // 3
-
-        # The chicken is in the x-posistion ~49
-        # We don't need to represent cars far from the chicken
-        for i in range(108, 118):
-            if ob[i] < 20 or ob[i] > 80:
-                ob[i] = 0
-            else:
-                # Reduce the cars x-positions sample space
-                ob[i] = ob[i] // 3
-
-        if reward == 1:
+        ob = reduce_state(ob)
+        reward = reward_policy(reward, ob)
+        if reward == reward_policy.REWARD_IF_CROSS:
             score += 1
-        elif ob[16] == 1:  # Collision!
-            reward = -1
-#         elif reward != 1 and action != 1:  # Don't incentivate staying still
-#             reward -= 0.2
 
         epi.add_step(state, action, reward, score)
-        state = ob[RAM_mask]
-        action = agent.act(state, reward)  # Next action
+        state = ob[RAM_mask].data.tobytes()
+        action = agent.act(state)  # Next action
 
     return epi
