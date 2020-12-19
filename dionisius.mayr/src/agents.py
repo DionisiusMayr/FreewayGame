@@ -85,15 +85,15 @@ class QLearning(Agent):
     def act(self, state):
         epsilon = self.N0 / (self.N0 + self.state_visits[state])
 
-        self.state_visits[state] += 1
-
         if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
             action = np.random.choice(self.available_actions)  # Explore!
-        elif self.state_visits[state] == 0:
-#         elif self.Q[state].max() == 0.0 and self.Q[state].min() == 0.0:
+#         elif self.state_visits[state] == 0:
+        elif self.Q[state].max() == 0.0 and self.Q[state].min() == 0.0:
             action = 1  # Bias toward going forward
         else:
             action = self.Q[state].argmax()  # Greedy action
+
+        self.state_visits[state] += 1
 
         self.Nsa[state][action] += 1
 
