@@ -73,7 +73,7 @@ def generate_episode(env,
         ob, reward, game_over, _ = env.step(action)
 
         ob = reduce_state(ob)
-        reward = reward_policy(reward, ob)
+        reward = reward_policy(reward, ob, action)
         if reward == reward_policy.REWARD_IF_CROSS:
             score += 1
 
