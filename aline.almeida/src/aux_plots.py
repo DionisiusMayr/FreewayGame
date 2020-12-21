@@ -3,7 +3,7 @@ import seaborn as sns
 
 from matplotlib.ticker import MaxNLocator
 
-FIGSIZE = (5, 3)
+FIGSIZE = (10, 6)
 DPI = 80
 
 def plot_scores(scores):
@@ -47,8 +47,8 @@ def plot_3scores(s1, s2, s3):
 
     ax.set_xlim(0.9, l + 0.1)
     ax.set_ylim(min(s2)-2, max(s2)+2)
-    ax.plot(range(1, l + 1), s1, color='cyan', label="1% exploration", alpha=0.8)
-    ax.plot(range(1, l + 1), s2, color='magenta', label="10% exploration", alpha=0.5)
+    ax.plot(range(1, l + 1), s1, color='cyan', label="gamma 0.99", alpha=0.8)
+    ax.plot(range(1, l + 1), s2, color='magenta', label="gamma 0.90", alpha=0.5)
     ax.plot(range(1, l + 1), s3, color='red', label="Mean baseline")
     plt.legend()
     
