@@ -72,10 +72,10 @@ class MonteCarloControl(Agent):
 
 
 class MonteCarloAprox(Agent):
-    def __init__(self, gamma: float, available_actions: int, N0: float,nFeature):
+    def __init__(self, gamma: float, available_actions: int, N0: float,nFeatures):
         self.gamma = gamma
         self.available_actions = available_actions
-        self.W=np.zeros(nFeature)
+        self.W=np.zeros(nFeatures)
         self.scaler=None
         self.Q = defaultdict(lambda: np.zeros(self.available_actions))
         # TODO: Are we able to use numpy arrays for `Returns`?
@@ -106,9 +106,12 @@ class MonteCarloAprox(Agent):
         #Scale if there exist and scaler and concatenates with the action
         state=np.frombuffer(state, dtype=np.uint8, count=-1)
         if self.scaler!=None:
-            state=self.scaler.transform(state)
+            state=self.scaler.transform(state.reshape(1, -1))
         return np.append(state, action)
-
+    def createFeature2(self,state,action)
+        state=np.frombuffer(state, dtype=np.uint8, count=-1)
+        # we have 12 index for our state
+        # we reduce to 2+1+1=4 in order to avoid much 0 in the vector
     def getApproximation(self, state, action):
         feature = self.createFeature(state, action)
         return np.dot(feature, self.W)
@@ -130,12 +133,15 @@ class MonteCarloAprox(Agent):
         S = np.array([s for s, _, _, _ in episode])
         A = np.array([a for _, a, _, _ in episode])
         R = np.array([r for _, _, r, _ in episode])
+        print(len(S))
         self.fit_normalizer(episode)
         for t in range(episode.length - 1):
-            if self.state_visits[S[t]]==1:
+            #print(self.state_visits[S[t]])
+            #print(S[t])
+            if self.state_visits[S[t]]>=1:
                 G=sum(R[t:])
                 self.update_W(S[t], A[t], G)
-                print('Update: ', self.W)
+                print('Update in '+str(t)+ " :", self.W)
 #         print(f"Pi: {len(pi):8} ", end='')#, Q: {len(Q)}, Returns: {len(Returns)}")
 
         return episode.get_final_score(), episode.get_total_reward()
