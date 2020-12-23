@@ -53,9 +53,9 @@ def plot_3rewards(r1, r2, r3, lab1, lab2, lab3):
     fig = plt.figure(figsize=FIGSIZE, dpi=DPI)
     ax = fig.add_subplot(1, 1, 1)
  
-    ax.plot(r1, color='zcyan', label=lab1, alpha=0.8)
-    ax.plot(r2, color='magenta', label=lab2, alpha=0.5)
-    ax.plot(r3, color='red', label=lab3)
+    ax.plot(r1, color='dodgerblue', label=lab1, alpha=0.8)
+    ax.plot(r2, color='blueviolet', label=lab2, alpha=0.5)
+    ax.plot(r3, color='darkred', label=lab3, alpha=0.5)
     plt.legend()
     
     plt.xlabel("Episode")
