@@ -1,12 +1,8 @@
 import time
-
-from collections import namedtuple
 from typing import List
 
 import src.agents as agents
 
-
-Step = namedtuple('Step', ['state', 'action', 'reward', 'score'])
 
 class Episode(object):
     """
@@ -18,29 +14,26 @@ class Episode(object):
     different reward strategies.
     """
     def __init__(self):
-        self.steps = []
+        self.S = []
+        self.A = []
+        self.R = []
+        self.scores = []
+
         self.length = 0
 
-    def __iter__(self):
-        return self.steps.__iter__()
-
-    def __getitem__(self, i):
-        return self.steps[i]
-
     def add_step(self, state, action, reward, score):
-        step = Step(state, action, reward, score)
-        self.steps.append(step)
+        self.S.append(state)
+        self.A.append(action)
+        self.R.append(reward)
+        self.scores.append(score)
+
         self.length += 1
 
-    def print_epi(self):
-        for s in self.steps:
-            print(f"{s.state[:10]}...:\ta {s.action} -> r {int(s.reward)} -> s {int(s.score)}")
-
     def get_final_score(self):
-        return max([s for _, _, _, s in self.steps])
+        return max(self.scores)
 
     def get_total_reward(self):
-        return sum([r for _, _, r, _ in self.steps])
+        return sum(self.R)
 
     def print_final_score(self):
         final_score = self.get_final_score()
