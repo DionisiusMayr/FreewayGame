@@ -159,9 +159,14 @@ class QLearningLinearApprox(Agent):
         alpha = (1 / self.Nsa[old_state][action])
         max_value =  np.max([self.getApproximation(new_state, act) for act in range(self.available_actions)])
 
+        with open("weights.csv", "a") as f:
+                #Alpha:{}, Action:{}, Reward:{} | Max_value:{} | Update: {} | Weight:
+                f.write('{}, {}, {}, {}, {}, {}\n'
+                .format(alpha, action, reward, max_value, alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action)), self.W))
+
         # print("new:{}, {} | old: {}, {}".format(self.createFeature(new_state, action),self.getApproximation(new_state, action), self.createFeature(old_state, action), self.getApproximation(old_state, action)))
-        print('Alpha:{}, Action:{}, Reward:{} | Max_value:{} | Update: {}'.format(alpha,action, reward, max_value, alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action))))
-        print("Weight:", self.W)
+        # print('Alpha:{}, Action:{}, Reward:{} | Max_value:{} | Update: {}'.format(alpha,action, reward, max_value, alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action))))
+        # print("Weight:", self.W)
         self.W = self.W + alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action))*self.createFeature(old_state, action)
         # self.Q[old_state][action] = self.Q[old_state][action] + alpha * (reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])
 
