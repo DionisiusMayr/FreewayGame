@@ -72,6 +72,10 @@ class MonteCarloControl(Agent):
 
         return episode.get_final_score(), episode.get_total_reward()
 
+    def print_parameters(self):
+        print(f"gamma = {self.gamma}")
+        print(f"available_actions = {self.available_actions}")
+        print(f"N0 = {self.N0}")
 
 class QLearning(Agent):
     def __init__(self, gamma: float, available_actions: int, N0: float):
@@ -101,3 +105,54 @@ class QLearning(Agent):
     def update_Q(self, old_state, new_state, action, reward):
         alpha = (1 / self.Nsa[old_state][action])
         self.Q[old_state][action] += alpha * (reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])
+
+    def print_parameters(self):
+        print(f"gamma = {self.gamma}")
+        print(f"available_actions = {self.available_actions}")
+        print(f"N0 = {self.N0}")
+
+class SarsaLambda(Agent):
+    def __init__(self, gamma: float, available_actions: int, N0: float, lambd: float):
+        self.gamma = gamma
+        self.available_actions = available_actions
+        self.N0 = N0
+        self.lambd = lambd
+
+        self.Q = defaultdict(lambda: np.zeros(self.available_actions))
+        self.state_visits = defaultdict(lambda: 0)
+        self.Nsa = defaultdict(lambda: defaultdict(lambda: 0))
+        self.E = defaultdict(lambda: np.zeros(self.available_actions))
+
+    def act(self, state):
+        epsilon = self.N0 / (self.N0 + self.state_visits[state])
+
+        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+            action = np.random.choice(self.available_actions)  # Explore!
+        elif self.Q[state].max() == 0.0 and self.Q[state].min() == 0.0:
+            action = 1  # Bias toward going forward
+        else:
+            action = self.Q[state].argmax()  # Greedy action
+
+        self.state_visits[state] += 1
+        self.Nsa[state][action] += 1
+        self.E[state][action] += 1
+
+        return action
+
+    def update_Q(self, old_s, new_s, old_a, new_a, reward):
+        delta = reward + self.gamma * self.Q[new_s][new_a] - self.Q[old_s][old_a]
+        alpha = (1 / self.Nsa[old_s][old_a])
+
+        for s in self.E:
+            for a in range(self.available_actions):
+                self.Q[old_s][old_a] += alpha * delta * self.E[s][a]
+                self.E[s][a] = self.gamma * self.lambd * self.E[s][a]
+
+    def reset_E(self):
+        self.E = defaultdict(lambda: np.zeros(self.available_actions))
+
+    def print_parameters(self):
+        print(f"gamma = {self.gamma}")
+        print(f"available_actions = {self.available_actions}")
+        print(f"N0 = {self.N0}")
+        print(f"lambd = {self.lambd}")
