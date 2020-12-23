@@ -108,10 +108,29 @@ class MonteCarloAprox(Agent):
         if self.scaler!=None:
             state=self.scaler.transform(state.reshape(1, -1))
         return np.append(state, action)
-    def createFeature2(self,state,action)
+
+    def createFeature2(self,state,action):
         state=np.frombuffer(state, dtype=np.uint8, count=-1)
         # we have 12 index for our state
         # we reduce to 2+1+1=4 in order to avoid much 0 in the vector
+        state1=state[0:2]
+        state2=np.mean(state[2:])
+        state3=np.count_nonzero(state[2:])
+        state4=np.array(action)
+        state=np.concatenate((state1,state2,state3,state4), axis=None)
+        return state
+
+    def listFeature2(self,state,action):
+        for s,a in zip(state,action):
+            s=np.frombuffer(s, dtype=np.uint8, count=-1)
+            print(s)
+            """
+            print("Feature1")
+            s=np.frombuffer(s, dtype=np.uint8, count=-1)
+            print(np.append(s, a))
+            print("Feature2")
+            print(self.createFeature2(s,a))
+            """
     def getApproximation(self, state, action):
         feature = self.createFeature(state, action)
         return np.dot(feature, self.W)
@@ -133,11 +152,15 @@ class MonteCarloAprox(Agent):
         S = np.array([s for s, _, _, _ in episode])
         A = np.array([a for _, a, _, _ in episode])
         R = np.array([r for _, _, r, _ in episode])
-        print(len(S))
+        #self.listFeature2(S,A)
+        #print(len(S))
+       
         self.fit_normalizer(episode)
         for t in range(episode.length - 1):
             #print(self.state_visits[S[t]])
-            #print(S[t])
+            print("State:",S[t])
+            print('State:',np.frombuffer(S[t], dtype=np.uint8, count=12))
+        """
             if self.state_visits[S[t]]>=1:
                 G=sum(R[t:])
                 self.update_W(S[t], A[t], G)
@@ -145,7 +168,7 @@ class MonteCarloAprox(Agent):
 #         print(f"Pi: {len(pi):8} ", end='')#, Q: {len(Q)}, Returns: {len(Returns)}")
 
         return episode.get_final_score(), episode.get_total_reward()
-"""
+
     def update_w(self, episode):
         
 

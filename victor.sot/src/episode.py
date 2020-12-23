@@ -77,7 +77,8 @@ def generate_episode(env,
         reward = reward_policy(reward, ob, action)
         if reward == reward_policy.REWARD_IF_CROSS:
             score += 1
-
+        #print("inside episode")
+        #print(state)
         epi.add_step(state, action, reward, score)
         state = ob[RAM_mask].data.tobytes()
         action = agent.act(state)  # Next action
