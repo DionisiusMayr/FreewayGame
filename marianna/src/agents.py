@@ -2,6 +2,7 @@
 from abc import ABC
 from abc import abstractmethod
 from collections import defaultdict
+from sklearn.preprocessing import StandardScaler
 
 import numpy as np
 
@@ -116,9 +117,13 @@ class QLearningLinearApprox(Agent):
 
         # self.Q = defaultdict(lambda: np.zeros(self.available_actions))
         # np.random.seed(42)
-        self.W = np.zeros(weights_length)#np.random.normal(0,1, weights_length)
+        self.W = np.zeros(weights_length+2)#np.random.normal(0,1, weights_length)
         self.state_visits = defaultdict(lambda: 0)
         self.Nsa = defaultdict(lambda: defaultdict(lambda: 0))
+        self.scaler = StandardScaler(with_mean=False)
+    
+    def trainScaler(self, env, mask, n_samples=10000):
+        self.scaler.fit(np.array([env.observation_space.sample()[mask] for x in range(n_samples)]))
 
     def act(self, state):
         epsilon = self.N0 / (self.N0 + self.state_visits[state])
@@ -140,7 +145,8 @@ class QLearningLinearApprox(Agent):
 
     def createFeature(self, state, action):
         #Transforms the state from bytes to integers and concatenates with the action
-        return np.append(np.frombuffer(state, dtype=np.uint8, count=-1), action)
+        feat_state = self.scaler.transform(np.frombuffer(state, dtype=np.uint8, count=-1).reshape(1,-1))
+        return np.append(feat_state, [action,1])
 
     def getApproximation(self, state, action):
         feature = self.createFeature(state, action)
@@ -152,7 +158,10 @@ class QLearningLinearApprox(Agent):
 #             print(f"alpha {self.alpha}, reward {reward}, gamma {self.gamma}, right side {(reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])}")
         alpha = (1 / self.Nsa[old_state][action])
         max_value =  np.max([self.getApproximation(new_state, act) for act in range(self.available_actions)])
-        # print('Update: ', self.W)#self.createFeature(old_state, action))# alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action)))
+
+        # print("new:{}, {} | old: {}, {}".format(self.createFeature(new_state, action),self.getApproximation(new_state, action), self.createFeature(old_state, action), self.getApproximation(old_state, action)))
+        print('Alpha:{}, Action:{}, Reward:{} | Max_value:{} | Update: {}'.format(alpha,action, reward, max_value, alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action))))
+        print("Weight:", self.W)
         self.W = self.W + alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action))*self.createFeature(old_state, action)
         # self.Q[old_state][action] = self.Q[old_state][action] + alpha * (reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])
 
