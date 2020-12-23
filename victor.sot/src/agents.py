@@ -80,38 +80,49 @@ class MonteCarloAprox(Agent):
         self.Q = defaultdict(lambda: np.zeros(self.available_actions))
         # TODO: Are we able to use numpy arrays for `Returns`?
         self.Returns = defaultdict(lambda: defaultdict(list))
+        self.state_visits = defaultdict(lambda: 0)
         self.pi = defaultdict(lambda: 1)  # Forward Bias
         self.N0 = N0
 
     def act(self, state):
         visits_on_state = sum([len(v) for k, v in self.Returns[state].items()])
         epsilon = self.N0 / (self.N0 + visits_on_state)
- 
+        self.state_visits[state] += 1
         if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
             return np.random.choice(self.available_actions)  # Explore!
         else:
             return self.pi[state]  # Greedy
 
     def update_policy(self, episode):
-        G = 0
+        
+        w=np.zeros(len(self.state_visits))
+
         S = np.array([s for s, _, _, _ in episode])
         A = np.array([a for _, a, _, _ in episode])
         R = np.array([r for _, _, r, _ in episode])
-
-        for t in reversed(range(episode.length - 1)):
-            # TODO: add the action to this comment
-            # TODO: According to the algorithm I should check if S_t appers in
-            #  the sequence S_0, S_1, S_2, ..., S_t-1.
-            G = self.gamma * G + R[t + 1]
-            self.Returns[S[t]][A[t]].append(G)
-            # Alpha is the `len(self.Returns[S[t]][A[t]])`
-            self.Q[S[t]][A[t]] = sum(self.Returns[S[t]][A[t]]) / len(self.Returns[S[t]][A[t]])  # Mean
-            self.pi[S[t]] = self.Q[S[t]].argmax()
+        #self.x=sToX(S)
+        
+        
+        for t in range(episode.length):
+            if self.state_visits[S[t]]:
+                G=sum(R[t:])
+                print("S"+str(t)+": ")
+                print(S[t])
+                print("Length S"+str(t)+": ")
+                print(len(S[t]))
+                print("Type S"+str(t)+": ")
+                print(type(S[t]))
+                print("Buffer S"+str(t)+": ")
+                print(np.frombuffer(S[t], dtype=np.uint8))
+            #    self.w=self.w+alpha*(G-self.x*self.w)*self.x
+                self.Returns[S[t]][A[t]].append(G)
+                # Alpha is the `len(self.Returns[S[t]][A[t]])`
+                self.Q[S[t]][A[t]] = sum(self.Returns[S[t]][A[t]]) / len(self.Returns[S[t]][A[t]])  # Mean
+                self.pi[S[t]] = self.Q[S[t]].argmax()
 
 #         print(f"Pi: {len(pi):8} ", end='')#, Q: {len(Q)}, Returns: {len(Returns)}")
 
         return episode.get_final_score(), episode.get_total_reward()
-
 
 
 class QLearning(Agent):
