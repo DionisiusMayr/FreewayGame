@@ -1,5 +1,5 @@
 """
-Useful script to run the experiment from the terminal.
+ Useful script to run the experiment from the terminal.
 """
 
 import sys
