@@ -77,138 +77,96 @@ class MonteCarloAprox(Agent):
         self.available_actions = available_actions
         self.W=np.zeros(nFeatures)
         self.scaler=None
-        self.Q = defaultdict(lambda: np.zeros(self.available_actions))
-        # TODO: Are we able to use numpy arrays for `Returns`?
         self.Returns = defaultdict(lambda: defaultdict(list))
         self.state_visits = defaultdict(lambda: 0)
-        self.pi = defaultdict(lambda: 1)  # Forward Bias
         self.N0 = N0
         self.Nsa = defaultdict(lambda: defaultdict(lambda: 0))
-    def act(self, state):
-        visits_on_state = sum([len(v) for k, v in self.Returns[state].items()])
-        epsilon = self.N0 / (self.N0 + visits_on_state)
-        self.state_visits[state] += 1
 
+    def act(self, stateByte,stateValue):
+        "the epsilon for the first episodio will choose randomly"
+        #visits_on_state = sum([len(v) for k, v in self.Returns[state].items()])
+        epsilon = self.N0 / (self.N0 + self.state_visits[stateByte])
         if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
             action = np.random.choice(self.available_actions)  # Explore!
-        elif self.state_visits[state] == 0:
+        elif self.state_visits[stateByte] == 0:
             action = 1  # Bias toward going forward
         else:
-            action = np.argmax([self.getApproximation(state, act) for act in range(self.available_actions)])  # Greedy action
-
-        self.state_visits[state] += 1
-
-        self.Nsa[state][action] += 1
-
+            action = np.argmax([self.getApproximation(stateValue, act) for act in range(self.available_actions)])  # Greedy action
         return action
-    def createFeature(self, state, action):
-        #Transforms the state from bytes to integers 
-        #Scale if there exist and scaler and concatenates with the action
-        state=np.frombuffer(state, dtype=np.uint8, count=-1)
-        if self.scaler!=None:
-            state=self.scaler.transform(state.reshape(1, -1))
-        return np.append(state, action)
 
-    def createFeature2(self,state,action):
-        state=np.frombuffer(state, dtype=np.uint8, count=-1)
+    def createFeature(self,state,action,typeFeature=1):
+        # the state come of stateArrayVector
+        # All byte states
+        if typeFeature:
+            return np.append(state, action)
+        else:
         # we have 12 index for our state
-        # we reduce to 2+1+1=4 in order to avoid much 0 in the vector
-        state1=state[0:2]
-        state2=np.mean(state[2:])
-        state3=np.count_nonzero(state[2:])
-        state4=np.array(action)
-        state=np.concatenate((state1,state2,state3,state4), axis=None)
-        return state
+        # we reduce to 2+1+1+1(action)=5 in order to avoid much 0 in the vector
+            state1=state[0:2]
+            state2=np.mean(state[2:])
+            state3=np.count_nonzero(state[2:])
+            a=np.array(action)
+            state=np.concatenate((state1,state2,state3,a), axis=None)
+            return state
 
-    def listFeature2(self,state,action):
+    """def listFeature2(self,state,action):
         for s,a in zip(state,action):
-            s=np.frombuffer(s, dtype=np.uint8, count=-1)
-            print(s)
-            """
-            print("Feature1")
-            s=np.frombuffer(s, dtype=np.uint8, count=-1)
             print(np.append(s, a))
             print("Feature2")
             print(self.createFeature2(s,a))
-            """
-    def getApproximation(self, state, action):
-        feature = self.createFeature(state, action)
+    """
+            
+    def getApproximation(self, state, action,typeFeature=1):
+        feature = self.createFeature(state, action,typeFeature)
+        #print("feature")
+        #print(feature)
+        state=self.scaler.transform(feature.reshape(1, -1))
         return np.dot(feature, self.W)
 
-    def fit_normalizer(self,episode,scaler=MinMaxScaler(),printed=False):
-        data =np.array([np.frombuffer(s, dtype=np.uint8,count=-1) for s, _, _, _ in episode])
+    def fit_normalizer(self,episode,scaler=MinMaxScaler(),typeFeature=1,printed=False):
+        if typeFeature:
+            data =np.array([self.createFeature(s,a,typeFeature=typeFeature) for _,s, a, _, _ in episode])
+        else:
+            data =np.array([self.createFeature(s,a,typeFeature=typeFeature) for _,s, a, _, _ in episode])
+
         self.scaler=scaler
+        # train the scaler with the data.
         norm=self.scaler.fit_transform(data)
         if printed:
             print("original ",data)
             print("norm ",norm)
+        #print("Normalized")
         #return data
-    def update_W(self, state, action, reward):
-        alpha = (1 / self.Nsa[state][action])
-        self.W = self.W + alpha*(reward  - self.getApproximation(state, action))*self.createFeature(state, action)
+    def update_W(self, stateValue, action, reward,typeFeature=1):
+        # fixed value of alpha
+        alpha = 0.00001#(1 / self.Nsa[state][action])
+        #stateValue form sArray
+        self.W = self.W + alpha*(reward  - self.getApproximation(stateValue, action,typeFeature))*self.createFeature(stateValue, action,typeFeature)
 
-    def updating(self, episode):
+    def updating(self, episode,typeFeature=1):
         G = 0
-        S = np.array([s for s, _, _, _ in episode])
-        A = np.array([a for _, a, _, _ in episode])
-        R = np.array([r for _, _, r, _ in episode])
-        #self.listFeature2(S,A)
-        #print(len(S))
+        # S:State in Bytes
+        # S_array: State in Values provisional solutions to reconstrution mistake from buffer
+        S = np.array([s for s, _, _, _,_ in episode])
+        S_array = np.array([sa for _, sa, _, _,_ in episode])
+        A=np.array([a for _,_, a, _, _ in episode])
+        R = np.array([r for _, _,_, r, _ in episode])
        
-        self.fit_normalizer(episode)
+        self.fit_normalizer(episode=episode,typeFeature=typeFeature,printed=False)
         for t in range(episode.length - 1):
-            #print(self.state_visits[S[t]])
-            print("State:",S[t])
-            print('State:',np.frombuffer(S[t], dtype=np.uint8, count=12))
-        """
-            if self.state_visits[S[t]]>=1:
+            # count of visits to apply the approximate function
+            self.state_visits[S[t]] += 1
+            self.Nsa[S[t]][A[t]] += 1
+            # first visit to the state   
+            if self.state_visits[S[t]]==1:
                 G=sum(R[t:])
-                self.update_W(S[t], A[t], G)
-                print('Update in '+str(t)+ " :", self.W)
+                #print(S_array[t])
+                self.update_W(stateValue =S_array[t],action= A[t], reward =G,typeFeature=typeFeature)
+                #print('Update in '+str(t)+ " :", self.W)
 #         print(f"Pi: {len(pi):8} ", end='')#, Q: {len(Q)}, Returns: {len(Returns)}")
 
         return episode.get_final_score(), episode.get_total_reward()
 
-    def update_w(self, episode):
-        
-
-        S = np.array([s for s, _, _, _ in episode])
-        S_values =self.get_Statevalues(episode)
-        A = np.array([a for _, a, _, _ in episode])
-        R = np.array([r for _, _, r, _ in episode])
-        #S=self.normalize_data(S)
-        
-        
-        for t in range(episode.length):
-            #x=np.buffer(S[t], dtype=np.uint8,count=-1)
-            G=sum(R[t:])
-            self.w=self.w+alpha*(G-x*self.w)*x
-            print("S"+str(t)+": ")
-            print(S[t])
-            print("Length S"+str(t)+": ")
-            print(len(S[t]))
-            print("Type S"+str(t)+": ")
-            print(type(S[t]))
-            if self.state_visits[S[t]]:
-                G=sum(R[t:])
-                print("S"+str(t)+": ")
-                print(S[t])
-                print("Length S"+str(t)+": ")
-                print(len(S[t]))
-                print("Type S"+str(t)+": ")
-                print(type(S[t]))
-                #print("Buffer S"+str(t)+": ")
-                #print(np.frombuffer(S[t], dtype=np.uint8,count=-1))
-                #self.w=self.w+alpha*(G-x*self.w)*x
-                self.Returns[S[t]][A[t]].append(G)
-                # Alpha is the `len(self.Returns[S[t]][A[t]])`
-                self.Q[S[t]][A[t]] = sum(self.Returns[S[t]][A[t]]) / len(self.Returns[S[t]][A[t]])  # Mean
-                self.pi[S[t]] = self.Q[S[t]].argmax()
-
-#         print(f"Pi: {len(pi):8} ", end='')#, Q: {len(Q)}, Returns: {len(Returns)}")
-
-        return episode.get_final_score(), episode.get_total_reward()
-"""
 
 class QLearning(Agent):
     def __init__(self, gamma: float, available_actions: int, N0: float):
