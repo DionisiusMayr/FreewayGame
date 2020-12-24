@@ -45,7 +45,8 @@ class MonteCarloControl(Agent):
     def act(self, state):
         epsilon = self.N0 / (self.N0 + self.state_visits[state])
  
-        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+        #if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+        if np.random.choice(np.arange(2), size=1, p=np.array([1-epsilon, epsilon])):
             action = np.random.choice(self.available_actions)  # Explore!
         else:
             action = self.pi[state]  # Greedy
