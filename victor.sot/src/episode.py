@@ -54,13 +54,16 @@ def generate_episode(env,
                      reward_policy,
                      agent: agents.Agent,
                      RAM_mask: List[int],
-                     render: bool=False) -> Episode:
+                     render: bool=False,reduce=True) -> Episode:
     """Performs one run of the game and returns an Episode containing all the
     steps taken."""
     epi = Episode()
     game_over = False
     state = env.reset()
-    state = reduce_state(state)[RAM_mask].data.tobytes()  # Select useful bytes
+    if reduce:
+        state = reduce_state(state)[RAM_mask].data.tobytes()  # Select useful bytes
+    else:
+        state = state[RAM_mask].data.tobytes()
     stateArray=np.frombuffer(state, dtype=np.uint8,count=-1)
     action = agent.act(state,stateArray)
 

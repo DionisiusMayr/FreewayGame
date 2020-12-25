@@ -4,7 +4,7 @@ import pickle
 from datetime import datetime
 
 
-PATH = './serialized_models/'
+# PATH = './serialized_models/'
 
 class Experiment():
     def __init__(self, agent, scores, total_rewards, reduce_state, reward_policy):
@@ -21,12 +21,12 @@ class Experiment():
         print(f"reward_policy.REWARD_IF_COLISION = {self.reward_policy.REWARD_IF_COLISION}")
         print(f"reward_policy.REWARD_IF_STILL = {self.reward_policy.REWARD_IF_STILL}")
 
-    def _generate_filename(self, algo: str) -> str:
+    def _generate_filename(self, path, algo: str) -> str:
         now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-        return f"{PATH}{algo}_{now}.dill"
+        return f"{path}{algo}_{now}.dill"
 
-    def save_experiment(self, algo: str):
-        fn = self._generate_filename(algo)
+    def save_experiment(self, path, algo: str):
+        fn = self._generate_filename(path, algo)
         with open(fn, "wb") as f:
             dill.dump(obj=self, file=f)
 
