@@ -110,11 +110,13 @@ class QLearning(Agent):
 #             print("New Q[state][action]", self.Q[old_state][action])
 
 class QLearningLinearApprox(Agent):
-    def __init__(self, alpha: float, gamma: float, available_actions: int, N0: float, weights_length: int):
+    def __init__(self, alpha: float, gamma: float, available_actions: int, N0: float, weights_length: int, fixed_alpha: bool, feat_type: str):
         self.alpha = alpha
         self.gamma = gamma
         self.available_actions = available_actions
         self.N0 = N0
+        self.fixed_alpha = fixed_alpha
+        self.feat_type = feat_type
 
         # self.Q = defaultdict(lambda: np.zeros(self.available_actions))
         # np.random.seed(42)
@@ -123,16 +125,16 @@ class QLearningLinearApprox(Agent):
         self.Nsa = defaultdict(lambda: defaultdict(lambda: 0))
         self.scaler = StandardScaler(with_mean=False)
     
-    def trainScaler(self, env, mask, feat_type='all', n_samples=10000):
-        if feat_type == 'all':
+    def trainScaler(self, env, mask, n_samples=10000):
+        if self.feat_type == 'all':
             self.scaler.fit(np.array([env.observation_space.sample()[mask] for x in range(n_samples)]))
-        elif feat_type == 'mean':
+        elif self.feat_type == 'mean':
             observations = [env.observation_space.sample()[mask] for x in range(n_samples)]
             features = [np.concatenate((state[0:2], np.mean(state[2:]), np.count_nonzero(state[2:])), axis=None)
             for state in observations]
             self.scaler.fit(np.array(features))
 
-    def act(self, state, feat_type='all'):
+    def act(self, state):
         epsilon = self.N0 / (self.N0 + self.state_visits[state])
 
         if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
@@ -141,7 +143,7 @@ class QLearningLinearApprox(Agent):
         elif self.state_visits[state] == 0:
             action = 1  # Bias toward going forward
         else:
-            action = np.argmax([self.getApproximation(state, act, feat_type) for act in range(self.available_actions)])  # Greedy action
+            action = np.argmax([self.getApproximation(state, act) for act in range(self.available_actions)])  # Greedy action
 
         self.state_visits[state] += 1
 
@@ -149,12 +151,12 @@ class QLearningLinearApprox(Agent):
 
         return action
 
-    def createFeature(self, state, action, feat_type='all'):
-        if feat_type == 'all':
+    def createFeature(self, state, action):
+        if self.feat_type == 'all':
             #Transforms the state from bytes to integers and concatenates with the action
             feat_state = self.scaler.transform(np.frombuffer(state, dtype=np.uint8, count=-1).reshape(1,-1))
             feature = np.append(feat_state, [action,1])
-        elif feat_type == 'mean':
+        elif self.feat_type == 'mean':
             state = np.frombuffer(state, dtype=np.uint8, count=-1)
             feat_state = np.concatenate((state[0:2], np.mean(state[2:]), np.count_nonzero(state[2:])), axis=None)
             feat_state = self.scaler.transform(feat_state.reshape(1,-1))
@@ -162,18 +164,18 @@ class QLearningLinearApprox(Agent):
 
         return feature
 
-    def getApproximation(self, state, action, feat_type='all'):
-        feature = self.createFeature(state, action, feat_type)
+    def getApproximation(self, state, action):
+        feature = self.createFeature(state, action)
         return np.dot(feature, self.W)
 
-    def update_W(self, old_state, new_state, action, reward, fixed_alpha=False, feat_type='all'):
-        if fixed_alpha:
+    def update_W(self, old_state, new_state, action, reward):
+        if self.fixed_alpha:
             alpha = self.alpha
         else:
             alpha = (1 / self.Nsa[old_state][action])
 
-        max_value =  np.max([self.getApproximation(new_state, act, feat_type) for act in range(self.available_actions)])
-        self.W = self.W + alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action, feat_type))*self.createFeature(old_state, action, feat_type)
+        max_value =  np.max([self.getApproximation(new_state, act) for act in range(self.available_actions)])
+        self.W = self.W + alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action))*self.createFeature(old_state, action)
         # print("new:{}, {} | old: {}, {}".format(self.createFeature(new_state, action),self.getApproximation(new_state, action), self.createFeature(old_state, action), self.getApproximation(old_state, action)))
         # print('Alpha:{}, Action:{}, Reward:{} | Max_value:{} | Update: {}'.format(alpha,action, reward, max_value, alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action))))
         # print("Weight:", self.W)
