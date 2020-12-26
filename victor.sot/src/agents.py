@@ -141,7 +141,6 @@ class MonteCarloAprox(Agent):
             # first visit to the state   
             if self.state_visits[S[t]]==1:
                 G=sum(R[t:])
-                #print(S_array[t])
                 self.update_W(stateValue =S_array[t],action= A[t], reward =G)
                 #print('Update in '+str(t)+ " :", self.W)
 #         print(f"Pi: {len(pi):8} ", end='')#, Q: {len(Q)}, Returns: {len(Returns)}")
@@ -177,13 +176,10 @@ class QLearning(Agent):
         return action
 
     def update_Q(self, old_state, new_state, action, reward):
-#         if reward:
-#             print("Old Q[state][action]", self.Q[old_state][action])
-#             print(f"alpha {self.alpha}, reward {reward}, gamma {self.gamma}, right side {(reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])}")
+
         alpha = (1 / self.Nsa[old_state][action])
         self.Q[old_state][action] = self.Q[old_state][action] + alpha * (reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])
-#         if reward:
-#             print("New Q[state][action]", self.Q[old_state][action])
+
 
 
 if __name__ == '__main__':
