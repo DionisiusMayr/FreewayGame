@@ -42,6 +42,7 @@ class MonteCarloControl(Agent):
         self.Returns = defaultdict(lambda: defaultdict(list))
         self.pi = defaultdict(lambda: 1)  # Forward Bias
         self.N0 = N0
+        
 
     def act(self, state):
         visits_on_state = sum([len(v) for k, v in self.Returns[state].items()])
@@ -81,6 +82,7 @@ class MonteCarloAprox(Agent):
         self.scaler=scaler
         self.Returns = defaultdict(lambda: defaultdict(list))
         self.state_visits = defaultdict(lambda: 0)
+        self.state_visits_per_episode = defaultdict(lambda: 0)
         self.N0 = N0
         self.Nsa = defaultdict(lambda: defaultdict(lambda: 0))
         self.feat_type=feat_type
@@ -132,14 +134,15 @@ class MonteCarloAprox(Agent):
         S_array = np.array([sa for _, sa, _, _,_ in episode])
         A=np.array([a for _,_, a, _, _ in episode])
         R = np.array([r for _, _,_, r, _ in episode])
-       
+        self.state_visits_per_episode = defaultdict(lambda: 0)
         #self.fit_normalizer(episode=episode,typeFeature=typeFeature,printed=False,scaler=scaler)
         for t in range(episode.length - 1):
             # count of visits to apply the approximate function
             self.state_visits[S[t]] += 1
+            self.state_visits_per_episode[S[t]] += 1
             self.Nsa[S[t]][A[t]] += 1
             # first visit to the state   
-            if self.state_visits[S[t]]==1:
+            if self.state_visits_per_episode[S[t]]==1:
                 G=sum(R[t:])
                 self.update_W(stateValue =S_array[t],action= A[t], reward =G)
                 #print('Update in '+str(t)+ " :", self.W)
