@@ -115,11 +115,12 @@ class QLearning(Agent):
     
     
 class SarsaLFAADAM(Agent):
-    def __init__(self, gamma: float, state_size:int, available_actions: int, N0: float, discount_factor: int, alpha: float):
+    def __init__(self, gamma: float, state_size:int, available_actions: int, N0: float, alpha: float, lamb:float):
         self.gamma = gamma
         self.available_actions = available_actions
         self.N0 = N0
         self.alpha = alpha
+        self.lamb = lamb
 
         self.weights = np.random.rand(2+state_size)
         
@@ -185,18 +186,19 @@ class SarsaLFAADAM(Agent):
 
         return action
 
-    def update_Q(self, old_s, new_s, old_a, new_a, reward, E):
+    def update(self, old_s, new_s, old_a, new_a, reward, E):
         delta = reward + self.gamma * self.qw(new_s, new_a) - self.qw(old_s, old_a)
         g = (self.get_features(new_s, new_a))
-        self.weights -= delta * self.adam(g, E) + 0.001*self.weights
+        self.weights += delta * self.adam(g, E) - self.lamb*self.weights
         
         
 class SarsaLFA(Agent):
-    def __init__(self, gamma: float, state_size:int, available_actions: int, N0: float, discount_factor: int, alpha: float):
+    def __init__(self, gamma: float, state_size:int, available_actions: int, N0: float, alpha: float, lamb:float):
         self.gamma = gamma
         self.available_actions = available_actions
         self.N0 = N0
         self.alpha = alpha
+        self.lamb = lamb
 
         self.weights = np.random.rand(2+state_size)
         
@@ -246,9 +248,9 @@ class SarsaLFA(Agent):
 
         return action
 
-    def update_Q(self, old_s, new_s, old_a, new_a, reward, E):
+    def update(self, old_s, new_s, old_a, new_a, reward, E):
         delta = reward + self.gamma * self.qw(new_s, new_a) - self.qw(old_s, old_a)
-        self.weights += self.alpha * delta * (self.get_features(new_s, new_a))-0.001*self.weights
+        self.weights += self.alpha * delta * (self.get_features(new_s, new_a))-self.lamb*self.weights
         
         
 if __name__ == '__main__':
