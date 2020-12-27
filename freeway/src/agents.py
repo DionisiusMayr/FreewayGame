@@ -45,7 +45,7 @@ class MonteCarloControl(Agent):
     def act(self, state):
         epsilon = self.N0 / (self.N0 + self.state_visits[state])
  
-        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+        if np.random.choice(np.arange(2), p=[1 - epsilon, epsilon]):
             action = np.random.choice(self.available_actions)  # Explore!
         else:
             action = self.pi[state]  # Greedy
@@ -90,7 +90,7 @@ class MonteCarloControlFixedEpsilon(Agent):
         self.pi = defaultdict(lambda: 1)  # Forward Bias
 
     def act(self, state):
-        if np.random.choice(np.arange(self.available_actions), p=[1 - self.epsilon, self.epsilon]):
+        if np.random.choice(np.arange(2), p=[1 - self.epsilon, self.epsilon]):
             action = np.random.choice(self.available_actions)  # Explore!
         else:
             action = self.pi[state]  # Greedy
@@ -135,7 +135,7 @@ class QLearning(Agent):
     def act(self, state):
         epsilon = self.N0 / (self.N0 + self.state_visits[state])
 
-        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+        if np.random.choice(np.arange(2), p=[1 - epsilon, epsilon]):
             action = np.random.choice(self.available_actions)  # Explore!
         elif self.Q[state].max() == 0.0 and self.Q[state].min() == 0.0:
             action = 1  # Bias toward going forward
@@ -171,7 +171,7 @@ class SarsaLambda(Agent):
     def act(self, state):
         epsilon = self.N0 / (self.N0 + self.state_visits[state])
 
-        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+        if np.random.choice(np.arange(2), p=[1 - epsilon, epsilon]):
             action = np.random.choice(self.available_actions)  # Explore!
         elif self.Q[state].max() == 0.0 and self.Q[state].min() == 0.0:
             action = 1  # Bias toward going forward

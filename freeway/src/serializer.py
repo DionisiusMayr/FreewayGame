@@ -21,12 +21,15 @@ class Experiment():
         print(f"reward_policy.REWARD_IF_COLISION = {self.reward_policy.REWARD_IF_COLISION}")
         print(f"reward_policy.REWARD_IF_STILL = {self.reward_policy.REWARD_IF_STILL}")
 
-    def _generate_filename(self, algo: str) -> str:
+    def _generate_filename(self, algo: str, include_ts=True) -> str:
         now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-        return f"{PATH}{algo}_{now}.dill"
+        if include_ts:
+            return f"{PATH}{algo}_{now}.dill"
+        else:
+            return f"{PATH}{algo}.dill"
 
-    def save_experiment(self, algo: str):
-        fn = self._generate_filename(algo)
+    def save_experiment(self, algo: str, include_ts=True):
+        fn = self._generate_filename(algo, include_ts)
         with open(fn, "wb") as f:
             dill.dump(obj=self, file=f)
 
