@@ -42,6 +42,7 @@ class MonteCarloControl(Agent):
         self.Returns = defaultdict(lambda: defaultdict(list))
         self.pi = defaultdict(lambda: 1)  # Forward Bias
         self.N0 = N0
+        
 
     def act(self, state):
         visits_on_state = sum([len(v) for k, v in self.Returns[state].items()])
@@ -73,16 +74,18 @@ class MonteCarloControl(Agent):
 
 
 class MonteCarloAprox(Agent):
-    def __init__(self, gamma: float, available_actions: int, N0: float,nFeatures,scaler=StandardScaler(),typeScale=None):
+    def __init__(self, gamma: float, available_actions: int, N0: float,nFeatures,scaler=StandardScaler(),feat_type=None):
+
         self.gamma = gamma
         self.available_actions = available_actions
         self.W=np.zeros(nFeatures+2)
         self.scaler=scaler
         self.Returns = defaultdict(lambda: defaultdict(list))
         self.state_visits = defaultdict(lambda: 0)
+        self.state_visits_per_episode = defaultdict(lambda: 0)
         self.N0 = N0
         self.Nsa = defaultdict(lambda: defaultdict(lambda: 0))
-        self.typeScale=typeScale
+        self.feat_type=feat_type
     def act(self, stateByte,stateValue):
         "the epsilon for the first episodio will choose randomly"
         #visits_on_state = sum([len(v) for k, v in self.Returns[state].items()])
@@ -92,70 +95,38 @@ class MonteCarloAprox(Agent):
         elif self.state_visits[stateByte] == 0:
             action = 1  # Bias toward going forward
         else:
-            action = np.argmax([self.getApproximation(stateValue, act,self.typeScale) for act in range(self.available_actions)])  # Greedy action
+            action = np.argmax([self.getApproximation(stateValue, act) for act in range(self.available_actions)])  # Greedy action
         return action
-    def createFeature(self,state,action,feat_type='all'):
+    def createFeature(self,state,action):
         
-        if feat_type == 'all':
+        if self.feat_type == 'all':
             #Transforms the state from bytes to integers and concatenates with the action
             feat_state = self.scaler.transform(state.reshape(1, -1))
             return np.append(feat_state, [action,1])
-        elif feat_type == 'mean':
+        elif self.feat_type == 'mean':
             feat_state = np.concatenate((state[0:2], np.mean(state[2:]), np.count_nonzero(state[2:])), axis=None)
             feat_state = self.scaler.transform(feat_state.reshape(1,-1))
             return  np.append(feat_state, [action,1])
-    """
-    def createFeature(self,state,action,typeFeature=1):
-        # the state come of stateArrayVector
-        # All byte states
-        if typeFeature:
-            return np.append(state, action)
-        else:
-        # we have 12 index for our state
-        # we reduce to 2+1+1+1(action)=5 in order to avoid much 0 in the vector
-            state1=state[0:2]
-            state2=np.mean(state[2:])
-            state3=np.count_nonzero(state[2:])
-            a=np.array(action)
-            state=np.concatenate((state1,state2,state3,a), axis=None)
-            return state
-            """
-
             
-    def getApproximation(self, state, action,feat_type):
-        feature = self.createFeature(state, action,feat_type)
+    def getApproximation(self, state, action):
+        feature = self.createFeature(state, action)
         return np.dot(feature, self.W)
-    """
-    def fit_normalizer(self,episode,scaler,typeFeature="all",printed=False):
-        if typeFeature="all":
-            data =np.array([self.createFeature(s,a,typeFeature=typeFeature) for _,s, a, _, _ in episode])
-        else:
-            data =np.array([self.createFeature(s,a,typeFeature=typeFeature) for _,s, a, _, _ in episode])
 
-        self.scaler=scaler
-        # train the scaler with the data.
-        norm=self.scaler.fit_transform(data)
-        if printed:
-            print("original ",data)
-            print("norm ",norm)
-        #print("Normalized")
-        #return data
-    """
-    def trainScaler(self, env, mask, feat_type='all', n_samples=10000):
-        if feat_type == 'all':
+    def trainScaler(self, env, mask, n_samples=10000):
+        if self.feat_type == 'all':
             self.scaler.fit(np.array([env.observation_space.sample()[mask] for x in range(n_samples)]))
-        elif feat_type == 'mean':
+        elif self.feat_type == 'mean':
             observations = [env.observation_space.sample()[mask] for x in range(n_samples)]
             features = [np.concatenate((state[0:2], np.mean(state[2:]), np.count_nonzero(state[2:])), axis=None)
             for state in observations]
             self.scaler.fit(np.array(features))
-    def update_W(self, stateValue, action, reward,feat_type):
+    def update_W(self, stateValue, action, reward):
         # fixed value of alpha
         alpha = 0.00001#(1 / self.Nsa[state][action])
         #stateValue form sArray
-        self.W = self.W + alpha*(reward  - self.getApproximation(stateValue, action,feat_type))*self.createFeature(stateValue, action,feat_type)
+        self.W = self.W + alpha*(reward  - self.getApproximation(stateValue, action))*self.createFeature(stateValue, action)
 
-    def updating(self, episode,feat_type):
+    def updating(self, episode):
         G = 0
         # S:State in Bytes
         # S_array: State in Values provisional solutions to reconstrution mistake from buffer
@@ -163,17 +134,17 @@ class MonteCarloAprox(Agent):
         S_array = np.array([sa for _, sa, _, _,_ in episode])
         A=np.array([a for _,_, a, _, _ in episode])
         R = np.array([r for _, _,_, r, _ in episode])
-       
+        self.state_visits_per_episode = defaultdict(lambda: 0)
         #self.fit_normalizer(episode=episode,typeFeature=typeFeature,printed=False,scaler=scaler)
         for t in range(episode.length - 1):
             # count of visits to apply the approximate function
             self.state_visits[S[t]] += 1
+            self.state_visits_per_episode[S[t]] += 1
             self.Nsa[S[t]][A[t]] += 1
             # first visit to the state   
-            if self.state_visits[S[t]]==1:
+            if self.state_visits_per_episode[S[t]]==1:
                 G=sum(R[t:])
-                #print(S_array[t])
-                self.update_W(stateValue =S_array[t],action= A[t], reward =G,feat_type=feat_type)
+                self.update_W(stateValue =S_array[t],action= A[t], reward =G)
                 #print('Update in '+str(t)+ " :", self.W)
 #         print(f"Pi: {len(pi):8} ", end='')#, Q: {len(Q)}, Returns: {len(Returns)}")
 
@@ -208,13 +179,10 @@ class QLearning(Agent):
         return action
 
     def update_Q(self, old_state, new_state, action, reward):
-#         if reward:
-#             print("Old Q[state][action]", self.Q[old_state][action])
-#             print(f"alpha {self.alpha}, reward {reward}, gamma {self.gamma}, right side {(reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])}")
+
         alpha = (1 / self.Nsa[old_state][action])
         self.Q[old_state][action] = self.Q[old_state][action] + alpha * (reward + (self.gamma * self.Q[new_state].max()) - self.Q[old_state][action])
-#         if reward:
-#             print("New Q[state][action]", self.Q[old_state][action])
+
 
 
 if __name__ == '__main__':
