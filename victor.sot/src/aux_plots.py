@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+from statistics import mean
 from matplotlib.ticker import MaxNLocator
 
 FIGSIZE = (10, 6)
