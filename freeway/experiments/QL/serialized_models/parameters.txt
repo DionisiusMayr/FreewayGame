@@ -1,0 +1,11 @@
+﻿GAMMA = 0.99
+AVAILABLE_ACTIONS = 2
+N0 = 0.001
+
+reward_policy.REWARD_IF_CROSS = 500
+reward_policy.REWARD_IF_COLISION = -10
+reward_policy.REWARD_IF_STILL = -1
+reward_policy.REWARD_IF_FW = 0
+
+n_runs = 10000
+
