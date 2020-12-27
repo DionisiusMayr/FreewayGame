@@ -3,6 +3,8 @@ from abc import ABC
 from abc import abstractmethod
 from collections import defaultdict
 
+from sklearn.preprocessing import StandardScaler
+
 import numpy as np
 
 class Agent(ABC):
@@ -225,6 +227,83 @@ class QLearningLinearApprox(Agent):
         max_value =  np.max([self.getApproximation(new_state, act) for act in range(self.available_actions)])
         self.W = self.W + alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action))*self.createFeature(old_state, action)
 
+class SarsaLFAADAM(Agent):
+    def __init__(self, gamma: float, state_size:int, available_actions: int, N0: float, alpha: float, lamb:float):
+        self.gamma = gamma
+        self.available_actions = available_actions
+        self.N0 = N0
+        self.alpha = alpha
+        self.lamb = lamb
+
+        self.weights = np.random.rand(2+state_size)
+        
+        self.scaler = StandardScaler(with_mean=False)
+
+        self.state_visits = defaultdict(lambda: 0)
+        
+        self.feat_type = 'all'
+        
+        # Adam
+        self.m=0
+        self.v=0
+        self.alpha=0.001
+        self.beta_1=0.9
+        self.beta_2 = 0.999
+        self.epsilon = 10e-5
+        
+    def trainScaler(self, env, mask, feat_type='all', n_samples=10000):
+        
+        self.feat_type = feat_type
+        if feat_type == 'all':
+            self.scaler.fit(np.array([env.observation_space.sample()[mask] for x in range(n_samples)]))
+        elif feat_type == 'mean':
+            observations = [env.observation_space.sample()[mask] for x in range(n_samples)]
+            features = [np.concatenate((state[0:2], np.mean(state[2:]), np.count_nonzero(state[2:])), axis=None)
+            for state in observations]
+            self.scaler.fit(np.array(features))
+    
+    def adam(self, g, t):
+        self.m = self.beta_1 * self.m + (1 - self.beta_1) * g
+        self.v = self.beta_2 * self.v + (1 - self.beta_2) * np.power(g, 2)
+        m_hat = self.m / (1 - np.power(self.beta_1, t))
+        v_hat = self.v / (1 - np.power(self.beta_2, t))
+        return self.alpha * m_hat / (np.sqrt(v_hat) + self.epsilon)
+
+    def qw(self, state, action):
+        return np.dot(self.get_features(state, action), self.weights)
+
+    def get_features(self, state, action):
+        if self.feat_type == 'all':
+            #Transforms the state from bytes to integers and concatenates with the action
+            feat_state = self.scaler.transform(np.frombuffer(state, dtype=np.uint8, count=-1).reshape(1,-1))
+            feature = np.append(feat_state, [action,1])
+        elif self.feat_type == 'mean':
+            state = np.frombuffer(state, dtype=np.uint8, count=-1)
+            feat_state = np.concatenate((state[0:2], np.mean(state[2:]), np.count_nonzero(state[2:])), axis=None)
+            feat_state = self.scaler.transform(feat_state.reshape(1,-1))
+            feature = np.append(feat_state, [action,1])
+        
+        return feature
+
+    def act(self, state):
+        epsilon = self.N0 / (self.N0 + self.state_visits[state])
+
+        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+            action = np.random.choice(self.available_actions)  # Explore!
+        elif self.state_visits[state] == 0:
+            action = 1  # Bias toward going forward
+        else:
+            action = np.argmax([self.qw(state, act) for act in range(self.available_actions)])
+
+        self.state_visits[state] += 1
+
+        return action
+
+    def update(self, old_s, new_s, old_a, new_a, reward, E):
+        delta = reward + self.gamma * self.qw(new_s, new_a) - self.qw(old_s, old_a)
+        g = (self.get_features(new_s, new_a))
+        self.weights += delta * self.adam(g, E) - self.lamb*self.weights
+
 class SarsaLambda(Agent):
     def __init__(self, gamma: float, available_actions: int, N0: float, lambd: float):
         self.gamma = gamma
@@ -335,3 +414,63 @@ class QLearningLinearApprox(Agent):
 
         max_value =  np.max([self.getApproximation(new_state, act) for act in range(self.available_actions)])
         self.W = self.W + alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action))*self.createFeature(old_state, action)
+
+class SarsaLFA(Agent):
+    def __init__(self, gamma: float, state_size:int, available_actions: int, N0: float, alpha: float, lamb:float):
+        self.gamma = gamma
+        self.available_actions = available_actions
+        self.N0 = N0
+        self.alpha = alpha
+        self.lamb = lamb
+
+        self.weights = np.random.rand(2+state_size)
+        
+        self.scaler = StandardScaler(with_mean=False)
+
+        self.state_visits = defaultdict(lambda: 0)
+        
+        self.feat_type = 'all'
+        
+    def trainScaler(self, env, mask, feat_type='all', n_samples=10000):
+        self.feat_type = feat_type
+        if feat_type == 'all':
+            self.scaler.fit(np.array([env.observation_space.sample()[mask] for x in range(n_samples)]))
+        elif feat_type == 'mean':
+            observations = [env.observation_space.sample()[mask] for x in range(n_samples)]
+            features = [np.concatenate((state[0:2], np.mean(state[2:]), np.count_nonzero(state[2:])), axis=None)
+            for state in observations]
+            self.scaler.fit(np.array(features))
+
+    def qw(self, state, action):
+        return np.dot(self.get_features(state, action), self.weights)
+
+    def get_features(self, state, action):
+        if self.feat_type == 'all':
+            #Transforms the state from bytes to integers and concatenates with the action
+            feat_state = self.scaler.transform(np.frombuffer(state, dtype=np.uint8, count=-1).reshape(1,-1))
+            feature = np.append(feat_state, [action,1])
+        elif self.feat_type == 'mean':
+            state = np.frombuffer(state, dtype=np.uint8, count=-1)
+            feat_state = np.concatenate((state[0:2], np.mean(state[2:]), np.count_nonzero(state[2:])), axis=None)
+            feat_state = self.scaler.transform(feat_state.reshape(1,-1))
+            feature = np.append(feat_state, [action,1])
+        
+        return feature
+
+    def act(self, state):
+        epsilon = self.N0 / (self.N0 + self.state_visits[state])
+
+        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+            action = np.random.choice(self.available_actions)  # Explore!
+        elif self.state_visits[state] == 0:
+            action = 1  # Bias toward going forward
+        else:
+            action = np.argmax([self.qw(state, act) for act in range(self.available_actions)])
+
+        self.state_visits[state] += 1
+
+        return action
+
+    def update(self, old_s, new_s, old_a, new_a, reward, E):
+        delta = reward + self.gamma * self.qw(new_s, new_a) - self.qw(old_s, old_a)
+        self.weights += self.alpha * delta * (self.get_features(new_s, new_a))-self.lamb*self.weights
