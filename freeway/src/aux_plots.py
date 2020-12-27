@@ -3,6 +3,7 @@ from statistics import mean
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 
 from matplotlib.ticker import MaxNLocator
 
@@ -130,8 +131,8 @@ def plot_scores_mean(scores, y_tick_size=1):
     mean_scores = []
 
     for b in range(blocks):
-      value = mean(scores[b*100:(b+1)*100])
-      mean_scores.append(value)
+        value = mean(scores[b*100:(b+1)*100])
+        mean_scores.append(value)
     
     ax.plot(range(50, l+50, 100), mean_scores, color='darkred', label='Mean', alpha=1)
 
@@ -156,41 +157,11 @@ def plot_rewards_mean(total_rewards, y_tick_size=100):
     mean_total_rewards = []
 
     for b in range(blocks):
-      value = mean(total_rewards[b*100:(b+1)*100])
-      mean_total_rewards.append(value)
+        value = mean(total_rewards[b*100:(b+1)*100])
+        mean_total_rewards.append(value)
 
     ax.plot(range(50, l+50, 100), mean_total_rewards, color='darkblue', label='Mean', alpha=1)
 
     plt.legend(loc='lower right')
     plt.xlabel("Episode")
     plt.ylabel("Final Reward")
-
-#     plt.legend()
-    
-#     ############3
-#     # ---------- Moving average for the scores of the agent with 2 and 3 actions ----------
-
-
-
-# s1 = scores_3act[:4000]
-# s2 = scores_2act[:4000]
-# s3 = baseline[:4000]
-
-# blocks = 4000//100
-# s1_avg100 = []
-
-# for b in range(blocks-1):
-#     value = statistics.mean(s1[b*100:(b+1)*100])
-#     s1_avg100.append(value)
-
-# s2_avg100 = []
-# for b in range(blocks-1):
-#     value = statistics.mean(s2[b*100:(b+1)*100])
-#     s2_avg100.append(value)
-    
-# s3_avg100 = []
-# for b in range(blocks-1):
-#     value = statistics.mean(s3[b*100:(b+1)*100])
-#     s3_avg100.append(value)
-    
-# aux_plots.plot_3scores(s1_avg100, s2_avg100, s3_avg100, "3 actions (up, down or stay)", "2 actions (up or stay)", "Baseline mean score (up)")
