@@ -45,7 +45,7 @@ class MonteCarloControl(Agent):
     def act(self, state):
         epsilon = self.N0 / (self.N0 + self.state_visits[state])
  
-        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+        if np.random.choice(np.arange(2), p=[1 - epsilon, epsilon]):
             action = np.random.choice(self.available_actions)  # Explore!
         else:
             action = self.pi[state]  # Greedy
@@ -90,7 +90,7 @@ class MonteCarloControlFixedEpsilon(Agent):
         self.pi = defaultdict(lambda: 1)  # Forward Bias
 
     def act(self, state):
-        if np.random.choice(np.arange(self.available_actions), p=[1 - self.epsilon, self.epsilon]):
+        if np.random.choice(np.arange(2), p=[1 - self.epsilon, self.epsilon]):
             action = np.random.choice(self.available_actions)  # Explore!
         else:
             action = self.pi[state]  # Greedy
@@ -135,7 +135,7 @@ class QLearning(Agent):
     def act(self, state):
         epsilon = self.N0 / (self.N0 + self.state_visits[state])
 
-        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+        if np.random.choice(np.arange(2), p=[1 - epsilon, epsilon]):
             action = np.random.choice(self.available_actions)  # Explore!
         elif self.Q[state].max() == 0.0 and self.Q[state].min() == 0.0:
             action = 1  # Bias toward going forward
@@ -171,7 +171,7 @@ class SarsaLambda(Agent):
     def act(self, state):
         epsilon = self.N0 / (self.N0 + self.state_visits[state])
 
-        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+        if np.random.choice(np.arange(2), p=[1 - epsilon, epsilon]):
             action = np.random.choice(self.available_actions)  # Explore!
         elif self.Q[state].max() == 0.0 and self.Q[state].min() == 0.0:
             action = 1  # Bias toward going forward
@@ -201,3 +201,68 @@ class SarsaLambda(Agent):
         print(f"available_actions = {self.available_actions}")
         print(f"N0 = {self.N0}")
         print(f"lambd = {self.lambd}")
+
+class QLearningLinearApprox(Agent):
+    def __init__(self, alpha: float, gamma: float, available_actions: int, N0: float, weights_length: int, fixed_alpha: bool, feat_type: str):
+        self.alpha = alpha
+        self.gamma = gamma
+        self.available_actions = available_actions
+        self.N0 = N0
+        self.fixed_alpha = fixed_alpha
+        self.feat_type = feat_type
+
+        self.W = np.zeros(weights_length+2)
+        self.state_visits = defaultdict(lambda: 0)
+        self.Nsa = defaultdict(lambda: defaultdict(lambda: 0))
+        self.scaler = StandardScaler(with_mean=False)
+    
+    def trainScaler(self, env, mask, n_samples=10000):
+        if self.feat_type == 'all':
+            self.scaler.fit(np.array([env.observation_space.sample()[mask] for x in range(n_samples)]))
+        elif self.feat_type == 'mean':
+            observations = [env.observation_space.sample()[mask] for x in range(n_samples)]
+            features = [np.concatenate((state[0:2], np.mean(state[2:]), np.count_nonzero(state[2:])), axis=None)
+            for state in observations]
+            self.scaler.fit(np.array(features))
+
+    def act(self, state):
+        epsilon = self.N0 / (self.N0 + self.state_visits[state])
+
+        if np.random.choice(np.arange(self.available_actions), p=[1 - epsilon, epsilon]):
+            action = np.random.choice(self.available_actions)  # Explore!
+        elif self.state_visits[state] == 0:
+            action = 1  # Bias toward going forward
+        else:
+            action = np.argmax([self.getApproximation(state, act) for act in range(self.available_actions)])  # Greedy action
+
+        self.state_visits[state] += 1
+
+        self.Nsa[state][action] += 1
+
+        return action
+
+    def createFeature(self, state, action):
+        if self.feat_type == 'all':
+            #Transforms the state from bytes to integers and concatenates with the action
+            feat_state = self.scaler.transform(np.frombuffer(state, dtype=np.uint8, count=-1).reshape(1,-1))
+            feature = np.append(feat_state, [action,1])
+        elif self.feat_type == 'mean':
+            state = np.frombuffer(state, dtype=np.uint8, count=-1)
+            feat_state = np.concatenate((state[0:2], np.mean(state[2:]), np.count_nonzero(state[2:])), axis=None)
+            feat_state = self.scaler.transform(feat_state.reshape(1,-1))
+            feature = np.append(feat_state, [action,1])
+
+        return feature
+
+    def getApproximation(self, state, action):
+        feature = self.createFeature(state, action)
+        return np.dot(feature, self.W)
+
+    def update_W(self, old_state, new_state, action, reward):
+        if self.fixed_alpha:
+            alpha = self.alpha
+        else:
+            alpha = (1 / self.Nsa[old_state][action])
+
+        max_value =  np.max([self.getApproximation(new_state, act) for act in range(self.available_actions)])
+        self.W = self.W + alpha*(reward + (self.gamma * max_value) - self.getApproximation(old_state, action))*self.createFeature(old_state, action)
