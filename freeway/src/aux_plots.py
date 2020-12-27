@@ -60,9 +60,9 @@ def plot_3scores(s1, s2, s3, lab1, lab2, lab3):
     fig = plt.figure(figsize=FIGSIZE, dpi=DPI)
     ax = fig.add_subplot(1, 1, 1)
     
-    ax.plot(s1, color='cyan', label=lab1, alpha=0.8)
+    ax.plot(s1, color='cyan', label=lab1, alpha=0.5)
     ax.plot(s2, color='magenta', label=lab2, alpha=0.5)
-    ax.plot(s3, color='red', label=lab3)
+    ax.plot(s3, color='#C02323', label=lab3, alpha=0.5)
     plt.legend()
     
     plt.xlabel("Episode")
