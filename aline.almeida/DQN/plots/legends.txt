@@ -1,0 +1,16 @@
+dqn_exploration.png:
+	curva vermelha: gamma=0.99, learning_rate=0.0005, exploration_fraction=0.10
+	curva azul:  	gamma=0.99, learning_rate=0.0005, exploration_fraction=0.20
+	curva laranja:  gamma=0.99, learning_rate=0.0005, exploration_fraction=0.05
+	
+dqn_gamma.png:
+	curva vermelha:   gamma=0.99, learning_rate=0.0005, exploration_fraction=0.10
+	curva azul claro: gamma=0.75, learning_rate=0.0005, exploration_fraction=0.10
+	curva pink: 	  gamma=0.90, learning_rate=0.0005, exploration_fraction=0.10
+	
+
+dqn_lr.png:
+	curva vermelha:   gamma=0.99, learning_rate=0.0005, exploration_fraction=0.10
+	curva verde: 	  gamma=0.99, learning_rate=0.0050, exploration_fraction=0.10
+	curva cinza:   	  gamma=0.99, learning_rate=0.0010, exploration_fraction=0.10
+
